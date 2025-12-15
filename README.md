@@ -23,15 +23,73 @@ This project uses the **DAIC-WoZ (Distress Analysis Interview Corpus - Wizard of
 - `Gender`: Participant gender
 - `PHQ_Binary`: Binary depression label (0 or 1)
 - `PHQ_Score`: Continuous PHQ-8 score
-- `Audio_Path`: Path to audio files
-- `Transcript`: Text transcriptions
+- `Audio_Path`: Path to audio files (format: `{Participant_ID}_AUDIO.wav`)
+- `Transcript`: Text transcriptions (format: `{Participant_ID}_TRANSCRIPT.csv`)
 - `Features`: Extracted audio features
+
+### Data Folder Structure
+
+The project includes a `data/` folder containing the dataset organization and preprocessing scripts:
+
+```
+data/
+├── extract_audios.ipynb              # Data preprocessing notebook
+│                                    # Functions to extract audio files and transcripts
+│                                    # from DAIC-WoZ dataset structure
+│
+└── labels/                           # Label files and data splits
+    ├── Detailed_PHQ8_Labels.csv     # Detailed PHQ-8 questionnaire responses
+    │                                # Contains: Participant_ID, PHQ_8NoInterest,
+    │                                # PHQ_8Depressed, PHQ_8Sleep, PHQ_8Tired,
+    │                                # PHQ_8Appetite, PHQ_8Failure, 
+    │                                # PHQ_8Concentrating, PHQ_8Moving, PHQ_8Total
+    │
+    ├── train_split.csv              # Training set labels
+    │                                # Contains: Participant_ID, Gender, PHQ_Binary,
+    │                                # PHQ_Score, PCL-C (PTSD), PTSD Severity
+    │
+    ├── test_split.csv               # Test set labels (AVEC2017 format)
+    ├── dev_split.csv                # Development/validation set labels
+    │
+    └── edited/                      # Edited/preprocessed label files
+        ├── Detailed_PHQ8_Labels.csv
+        ├── train_split.csv
+        └── dev_split.csv
+```
+
+### Data Preprocessing
+
+The `data/extract_audios.ipynb` notebook contains utilities for organizing DAIC-WoZ data:
+
+- **`copy_audios()`**: Extracts audio files (`{ID}_AUDIO.wav`) from participant directories
+- **`copy_transcripts()`**: Extracts transcript files (`{ID}_Transcript.csv`) 
+- **`copy_transcripts_allcaps()`**: Extracts transcript files with uppercase naming (`{ID}_TRANSCRIPT.csv`)
+
+The preprocessing handles the DAIC-WoZ directory structure where each participant has a folder named `{Participant_ID}_P/` containing:
+- Audio files: `{Participant_ID}_AUDIO.wav`
+- Transcript files: `{Participant_ID}_TRANSCRIPT.csv` or `{Participant_ID}_Transcript.csv`
+
+### Data Splits
+
+The project uses predefined train/test/validation splits:
+- **Training Set**: ~148-244 samples (varies by modality)
+- **Test/Dev Set**: ~48-62 samples
+- Splits are available in both standard and AVEC2017 challenge formats
 
 ## Project Structure
 
 ```
 SpeechDepressionDetection/
 ├── README.md
+├── data/                      # Dataset organization and preprocessing
+│   ├── extract_audios.ipynb  # Data extraction utilities
+│   └── labels/               # Label files and data splits
+│       ├── Detailed_PHQ8_Labels.csv
+│       ├── train_split.csv
+│       ├── test_split.csv
+│       ├── dev_split.csv
+│       └── edited/           # Preprocessed label files
+│
 ├── TextOnly/                  # Text-based depression detection
 │   ├── main.ipynb            # Main notebook for text classification
 │   ├── bilstm_*.h5           # Trained BiLSTM models
@@ -144,35 +202,56 @@ python -m spacy download en_core_web_sm
 
 ## Usage
 
-### 1. Text-Only Classification
+### Step 1: Data Preparation
+
+First, prepare your DAIC-WoZ dataset:
+
+```python
+# Navigate to data directory
+cd data
+
+# Run extract_audios.ipynb to organize the dataset
+# This will extract audio files and transcripts from the DAIC-WoZ structure
+# Update the source_directory and destination_folder paths in the notebook
+```
+
+### Step 2: Choose Your Model
+
+#### 1. Text-Only Classification
 
 ```python
 # Navigate to TextOnly directory
 cd TextOnly
 
 # Open and run main.ipynb
-# Load your text data and run the BiLSTM model
+# The notebook loads labels from data/labels/edited/
+# Trains a BiLSTM model on text transcripts
 ```
 
-### 2. Speech-Only Classification
+#### 2. Speech-Only Classification
 
 ```python
 # Navigate to SpeechOnly directory
 cd SpeechOnly
 
 # Preprocess audio data
-# Run main_prep.ipynb for data preparation
+# Run main_prep.ipynb for data preparation and feature extraction
 # Run gru_*.ipynb notebooks for model training
+# Choose from different GRU architectures (32_16, 64_32, etc.)
 ```
 
-### 3. Multimodal Fusion
+#### 3. Multimodal Fusion
 
 ```python
 # Navigate to TextSpeech or TextSpeechProsody directory
 cd TextSpeech  # or TextSpeechProsody
 
 # Open main.ipynb
-# Ensure you have prepared text, audio, and (optionally) prosody features
+# The notebook loads:
+#   - Labels from data/labels/edited/
+#   - Text features from transcripts
+#   - Audio features (pre-extracted)
+#   - Prosodic features (for TextSpeechProsody)
 # Train the fusion model
 ```
 
@@ -186,13 +265,29 @@ The models use the following training configurations:
 - **Validation Split**: Typically 20% of training data
 
 ### Data Preprocessing
-1. Load DAIC-WoZ dataset
-2. Extract features:
-   - Text: Tokenization and padding
-   - Audio: Feature extraction using librosa/python_speech_features
-   - Prosody: Pitch, jitter, shimmer, pause analysis
-3. Split into train/test sets
-4. Balance datasets if needed
+
+#### 1. Dataset Organization
+First, organize the raw DAIC-WoZ dataset using `data/extract_audios.ipynb`:
+- Extract audio files from participant directories
+- Extract transcript files
+- Organize into train/validation/test directories
+
+#### 2. Feature Extraction
+Extract features from organized data:
+- **Text**: Tokenization and padding from transcript files
+- **Audio**: Feature extraction using librosa/python_speech_features
+- **Prosody**: Pitch, jitter, shimmer, pause analysis using parselmouth
+
+#### 3. Data Splits
+The project uses predefined splits from `data/labels/`:
+- Load train/test splits from CSV files
+- Use `train_split.csv` for training
+- Use `dev_split.csv` or `test_split.csv` for evaluation
+- Splits are based on Participant_ID matching
+
+#### 4. Data Balancing
+- Handle class imbalance using downsampling or upsampling
+- Multiple balanced datasets available (e.g., `audio_balanced.csv`, `audio_balanced_downsampled.csv`)
 
 ## Evaluation Metrics
 
